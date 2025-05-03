@@ -35,16 +35,16 @@
 	    _gEl = _doc.createElementNS("http://www.w3.org/2000/svg", "g");
 	    _gEl.style.transform = "none";
 	    var d1 = doc.createElement("div"),
-	        d2 = doc.createElement("div");
+	        d2 = doc.createElement("div"),
+	        root = doc && (doc.body || doc.firstElementChild);
 
-	    _body.appendChild(d1);
-
-	    d1.appendChild(d2);
-	    d1.style.position = "static";
-	    d1.style[_transformProp] = "translate3d(0,0,1px)";
-	    _hasOffsetBug = d2.offsetParent !== d1;
-
-	    _body.removeChild(d1);
+	    if (root && root.appendChild) {
+	      root.appendChild(d1);
+	      d1.appendChild(d2);
+	      d1.setAttribute("style", "position:static;transform:translate3d(0,0,1px)");
+	      _hasOffsetBug = d2.offsetParent !== d1;
+	      root.removeChild(d1);
+	    }
 	  }
 
 	  return doc;
@@ -154,6 +154,7 @@
 	      isRootSVG = element === svg,
 	      siblings = svg ? _svgTemps : _divTemps,
 	      parent = element.parentNode,
+	      appendToEl = parent && !svg && parent.shadowRoot && parent.shadowRoot.appendChild ? parent.shadowRoot : parent,
 	      container,
 	      m,
 	      b,
@@ -225,7 +226,7 @@
 	    b[_transformProp] = cs[_transformProp];
 	    b[_transformOriginProp] = cs[_transformOriginProp];
 	    b.position = cs.position === "fixed" ? "fixed" : "absolute";
-	    element.parentNode.appendChild(container);
+	    appendToEl.appendChild(container);
 	  }
 
 	  return container;
@@ -364,12 +365,11 @@
 	}
 
 	/*!
-	 * Flip 3.12.2
-	 * https://greensock.com
+	 * Flip 3.13.0
+	 * https://gsap.com
 	 *
-	 * @license Copyright 2008-2023, GreenSock. All rights reserved.
-	 * Subject to the terms at https://greensock.com/standard-license or for
-	 * Club GreenSock members, the agreement issued with that membership.
+	 * @license Copyright 2008-2025, GreenSock. All rights reserved.
+	 * Subject to the terms at https://gsap.com/standard-license
 	 * @author: Jack Doyle, jack@greensock.com
 	*/
 
@@ -686,7 +686,7 @@
 	      scaleY = toState.scaleY,
 	      rotation = toState.rotation,
 	      bounds = toState.bounds,
-	      styles = vars && _getStyleSaver && _getStyleSaver(element, "transform"),
+	      styles = vars && _getStyleSaver && _getStyleSaver(element, "transform,width,height"),
 	      dimensionState = fromState,
 	      _toState$matrix = toState.matrix,
 	      e = _toState$matrix.e,
@@ -1421,6 +1421,7 @@
 	        bounds = element.getBoundingClientRect(),
 	        bbox = element.getBBox && typeof element.getBBox === "function" && element.nodeName.toLowerCase() !== "svg" && element.getBBox(),
 	        m = simple ? new Matrix2D(1, 0, 0, 1, bounds.left + _getDocScrollLeft(), bounds.top + _getDocScrollTop()) : getGlobalMatrix(element, false, false, true);
+	    cache.uncache = 1;
 	    self.getProp = getProp;
 	    self.element = element;
 	    self.id = _getID(element);
@@ -1732,13 +1733,14 @@
 	        fitChild = vars && vars.fitChild && _getEl(vars.fitChild),
 	        before = _parseElementState(toEl, props, simple, fromEl),
 	        after = _parseElementState(fromEl, 0, simple, before),
-	        inlineProps = props ? _memoizedRemoveProps[props] : _removeProps;
+	        inlineProps = props ? _memoizedRemoveProps[props] : _removeProps,
+	        ctx = gsap.context();
 
 	    props && _applyProps(v, before.props);
 
-	    if (runBackwards) {
-	      _recordInlineStyles(after, inlineProps);
+	    _recordInlineStyles(after, inlineProps);
 
+	    if (runBackwards) {
 	      "immediateRender" in v || (v.immediateRender = true);
 
 	      v.onComplete = function () {
@@ -1749,7 +1751,13 @@
 	    }
 
 	    absolute && _makeAbsolute(after, before);
-	    v = _fit(after, before, scale || fitChild, props, fitChild, v.duration || getVars ? v : 0);
+	    v = _fit(after, before, scale || fitChild, !v.duration && props, fitChild, v.duration || getVars ? v : 0);
+	    typeof vars === "object" && "zIndex" in vars && (v.zIndex = vars.zIndex);
+	    ctx && !getVars && ctx.add(function () {
+	      return function () {
+	        return _applyInlineStyles(after);
+	      };
+	    });
 	    return getVars ? v : v.duration ? gsap.to(after.element, v) : null;
 	  };
 
@@ -1806,7 +1814,7 @@
 
 	  return Flip;
 	}();
-	Flip.version = "3.12.2";
+	Flip.version = "3.13.0";
 	typeof window !== "undefined" && window.gsap && window.gsap.registerPlugin(Flip);
 
 	exports.Flip = Flip;

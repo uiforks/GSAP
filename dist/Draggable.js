@@ -49,16 +49,16 @@
       _gEl = _doc.createElementNS("http://www.w3.org/2000/svg", "g");
       _gEl.style.transform = "none";
       var d1 = doc.createElement("div"),
-          d2 = doc.createElement("div");
+          d2 = doc.createElement("div"),
+          root = doc && (doc.body || doc.firstElementChild);
 
-      _body.appendChild(d1);
-
-      d1.appendChild(d2);
-      d1.style.position = "static";
-      d1.style[_transformProp] = "translate3d(0,0,1px)";
-      _hasOffsetBug = d2.offsetParent !== d1;
-
-      _body.removeChild(d1);
+      if (root && root.appendChild) {
+        root.appendChild(d1);
+        d1.appendChild(d2);
+        d1.setAttribute("style", "position:static;transform:translate3d(0,0,1px)");
+        _hasOffsetBug = d2.offsetParent !== d1;
+        root.removeChild(d1);
+      }
     }
 
     return doc;
@@ -168,6 +168,7 @@
         isRootSVG = element === svg,
         siblings = svg ? _svgTemps : _divTemps,
         parent = element.parentNode,
+        appendToEl = parent && !svg && parent.shadowRoot && parent.shadowRoot.appendChild ? parent.shadowRoot : parent,
         container,
         m,
         b,
@@ -239,7 +240,7 @@
       b[_transformProp] = cs[_transformProp];
       b[_transformOriginProp] = cs[_transformOriginProp];
       b.position = cs.position === "fixed" ? "fixed" : "absolute";
-      element.parentNode.appendChild(container);
+      appendToEl.appendChild(container);
     }
 
     return container;
@@ -1795,6 +1796,7 @@
           self.tween = tween = gsap.to(scrollProxy || target, {
             inertia: inertia,
             data: "_draggable",
+            inherit: false,
             onComplete: onThrowComplete,
             onInterrupt: onThrowInterrupt,
             onUpdate: vars.fastMode ? _dispatchEvent : syncXY,
@@ -2158,7 +2160,7 @@
             self.y = y;
           }
 
-          if (self.x !== startElementX || Math.abs(startElementY - y) > minimumMovement) {
+          if (self.x !== startElementX || Math.max(Math.abs(startPointerX - pointerX), Math.abs(startPointerY - pointerY)) > minimumMovement) {
             self.y = y;
             x = startElementX + (startElementY - y) * dragTolerance;
           } else {
@@ -2748,7 +2750,7 @@
           InertiaPlugin.track(scrollProxy || target, xyMode ? "x,y" : rotationMode ? "rotation" : "top,left");
         }
 
-        target._gsDragID = id = "d" + _lookupCount++;
+        target._gsDragID = id = target._gsDragID || "d" + _lookupCount++;
         _lookup[id] = self;
 
         if (scrollProxy) {
@@ -2954,7 +2956,7 @@
   });
 
   Draggable.zIndex = 1000;
-  Draggable.version = "3.12.2";
+  Draggable.version = "3.13.0";
   _getGSAP() && gsap.registerPlugin(Draggable);
 
   exports.Draggable = Draggable;
